@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+web3
+scikit-learn
+pyjwt
+passlib
+pydantic
+bcrypt
+python-multipart

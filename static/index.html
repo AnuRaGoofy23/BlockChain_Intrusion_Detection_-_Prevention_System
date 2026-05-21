@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockShield - Blockchain Intrusion Detection System</title>
+    <meta name="description"
+        content="Advanced blockchain security monitoring and intrusion detection dashboard with real-time threat analysis">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Auth Overlay Portal -->
+    <div class="auth-overlay" id="authOverlay">
+        <!-- Login Card -->
+        <div class="auth-card" id="loginCard">
+            <h2>Access Portal</h2>
+            <p>Enter your credentials to access BlockShield IDS</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="e.g. admin" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="auth-btn">Authorize</button>
+            </form>
+            <div class="auth-switch">
+                Don't have an account? <a id="switchToRegister">Register Key</a>
+            </div>
+        </div>
+
+        <!-- Register Card -->
+        <div class="auth-card" id="registerCard" style="display: none;">
+            <h2>Register Node</h2>
+            <p>Generate a new authorization key for your user profile</p>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" class="form-control" placeholder="e.g. security_node_01" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Authorization Password</label>
+                    <input type="password" id="registerPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="auth-btn">Register Node</button>
+            </form>
+            <div class="auth-switch">
+                Already registered? <a id="switchToLogin">Access Portal</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Effects -->
+    <div class="bg-effects">
+        <div class="grid-overlay"></div>
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                         <h1>BlockShield</h1>
+                         <span>Intrusion Prevention System</span>
+                     </div>
+                 </div>
+                 <nav class="nav">
+                     <a href="#" class="nav-link active" id="navDashboard">Dashboard</a>
+                     <a href="#" class="nav-link" id="navSimulator">Wallet Simulator</a>
+                     <a href="#" class="nav-link" id="navAuditor">Contract Auditor</a>
+                     <a href="#" class="nav-link" id="navThreatDb">Threat DB</a>
+                 </nav>
+                 <div class="header-actions">
+                     <!-- Traffic Simulator Panel -->
+                     <div class="simulate-panel">
+                         <button class="simulate-btn" id="simulateTrafficBtn">
+                             <span class="spinner" style="display: none;" id="simulateSpinner"></span>
+                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="simulateIcon">
+                                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                             </svg>
+                             <span>Simulate traffic</span>
+                         </button>
+                     </div>
+
+                     <button class="btn-icon" id="notificationBtn">
+                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path d="M18 8A6 6 0 0 0 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                             <path
+                                 d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                         </svg>
+                         <span class="notification-badge" id="alertCountBadge">0</span>
+                     </button>
+                     <div class="status-indicator">
+                         <span class="pulse" id="statusPulse"></span>
+                         <span class="status-text" id="statusText">CONNECTING</span>
+                     </div>
+                     <button class="btn-logout" id="logoutBtn">Logout</button>
+                 </div>
+             </div>
+         </div>
+     </header>
+
+     <!-- Main Content -->
+     <main class="main">
+         <div class="container">
+             <!-- Stats Grid -->
+             <section class="stats-grid">
+                 <div class="stat-card" data-color="rose">
+                     <div class="stat-icon">
+                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path
+                                 d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                             <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round" />
+                             <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round" />
+                         </svg>
+                     </div>
+                     <div class="stat-info">
+                         <h3 class="stat-value" id="threatsDetected">0</h3>
+                         <p class="stat-label">Anomalies Detected</p>
+                         <span class="stat-change positive" id="intrusionRate">0% intrusion rate</span>
+                     </div>
+                 </div>
+
+                 <div class="stat-card" data-color="rose">
+                     <div class="stat-icon">
+                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                             <path
+                                 d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                         </svg>
+                     </div>
+                     <div class="stat-info">
+                         <h3 class="stat-value" id="blockedAttacks">0</h3>
+                         <p class="stat-label">Blocked / Intercepted</p>
+                         <span class="stat-change positive" id="highAlertPercentage">0% of total</span>
+                     </div>
+                 </div>
+
+                 <div class="stat-card" data-color="purple">
+                     <div class="stat-icon">
+                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" />
+                             <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round" />
+                             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round" />
+                         </svg>
+                     </div>
+                     <div class="stat-info">
+                         <h3 class="stat-value" id="activeNodes">0</h3>
+                         <p class="stat-label">Total Transactions Logs</p>
+                         <span class="stat-change neutral" id="dbStatusText">SQLite DB Active</span>
+                     </div>
+                 </div>
+
+                 <div class="stat-card" data-color="aqua">
+                     <div class="stat-icon">
+                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" />
+                         </svg>
+                     </div>
+                     <div class="stat-info">
+                         <h3 class="stat-value" id="networkHealth">100%</h3>
+                         <p class="stat-label">System Status</p>
+                         <span class="stat-change positive">Model Loaded (Contam: 0.3)</span>
+                     </div>
+                 </div>
+             </section>
+
+             <!-- TAB: DASHBOARD -->
+             <div class="tab-panel active" id="tabDashboard">
+                 <div class="content-grid">
+                     <!-- Threat Monitor Logs Table -->
+                     <section class="panel threat-monitor">
+                         <div class="panel-header">
+                             <h2 id="monitorTitle">Intrusion Logs & Transactions</h2>
+                             <div class="panel-actions">
+                                 <button class="btn-small" id="clearLogsBtn">Refresh Table</button>
+                             </div>
+                         </div>
+                         <div class="threat-list" id="threatList">
+                             <!-- Filled by script.js -->
+                         </div>
+                     </section>
+
+                     <!-- Manual Anomaly Tester -->
+                     <section class="panel search-panel">
+                         <div class="panel-header">
+                             <h2>Manual Isolation Forest Query</h2>
+                             <span>Run transaction anomaly classifier</span>
+                         </div>
+                         <p class="activity-label">Input a transaction hash to analyze its metrics using the Scikit-learn model</p>
+                         <form id="searchForm" class="search-container">
+                             <input type="text" id="searchTxHash" class="search-input" placeholder="Enter Tx Hash (e.g. 0x0123...)" required>
+                             <button type="submit" class="search-btn" id="searchBtn">
+                                 <span class="spinner" style="display: none;" id="searchSpinner"></span>
+                                 <span>Analyze</span>
+                             </button>
+                         </form>
+                     </section>
+
+                     <!-- Network Activity Graph -->
+                     <section class="panel network-activity">
+                         <div class="panel-header">
+                             <h2>Anomaly Score Frequency</h2>
+                             <div class="time-filter">
+                                 <button class="filter-btn active">Real-Time</button>
+                             </div>
+                         </div>
+                         <div class="activity-chart" id="activityChart">
+                             <canvas id="chartCanvas"></canvas>
+                         </div>
+                         <div class="activity-stats">
+                             <div class="activity-stat">
+                                 <span class="activity-label">Average Anomaly Score</span>
+                                 <span class="activity-value" id="avgAnomalyScore">0.0000</span>
+                             </div>
+                             <div class="activity-stat">
+                                 <span class="activity-label">Peak Anomaly Score</span>
+                                 <span class="activity-value" id="peakAnomalyScore">0.0000</span>
+                             </div>
+                             <div class="activity-stat">
+                                 <span class="activity-label">Avg Gas Limit</span>
+                                 <span class="activity-value" id="avgGasUsed">0</span>
+                             </div>
+                         </div>
+                     </section>
+
+                     <!-- Security Alerts (High & Medium anomalies) -->
+                     <section class="panel security-alerts">
+                         <div class="panel-header">
+                             <h2>Recent High Priority Alerts</h2>
+                             <span class="alert-count" id="alertCountText">0 Active</span>
+                         </div>
+                         <div class="alerts-list" id="alertsList">
+                             <!-- Filled by script.js -->
+                         </div>
+                     </section>
+
+                     <!-- Blockchain Status -->
+                     <section class="panel blockchain-status">
+                         <div class="panel-header">
+                             <h2>Intrusion Classification Thresholds</h2>
+                         </div>
+                         <div class="status-grid">
+                             <div class="status-item">
+                                 <div class="status-item-header">
+                                     <span class="status-item-label">High Severity (Score > 0.15)</span>
+                                     <span class="status-badge success" id="highScoreCount">0 Logs</span>
+                                 </div>
+                                 <div class="progress-bar">
+                                     <div class="progress-fill" id="highScoreProgress" style="width: 0%"></div>
+                                 </div>
+                             </div>
+                             <div class="status-item">
+                                 <div class="status-item-header">
+                                     <span class="status-item-label">Medium Severity (0.05 < Score &le; 0.15)</span>
+                                     <span class="status-badge warning" id="medScoreCount">0 Logs</span>
+                                 </div>
+                                 <div class="progress-bar">
+                                     <div class="progress-fill" id="medScoreProgress" style="width: 0%"></div>
+                                 </div>
+                             </div>
+                             <div class="status-item">
+                                 <div class="status-item-header">
+                                     <span class="status-item-label">Low Severity (0.00 < Score &le; 0.05)</span>
+                                     <span class="status-badge warning" id="lowScoreCount">0 Logs</span>
+                                 </div>
+                                 <div class="progress-bar">
+                                     <div class="progress-fill" id="lowScoreProgress" style="width: 0%"></div>
+                                 </div>
+                             </div>
+                             <div class="status-item">
+                                 <div class="status-item-header">
+                                     <span class="status-item-label">Normal Network Traffic (Score &le; 0.00)</span>
+                                     <span class="status-badge success" id="noneScoreCount">0 Logs</span>
+                                 </div>
+                                 <div class="progress-bar">
+                                     <div class="progress-fill" id="noneScoreProgress" style="width: 0%"></div>
+                                 </div>
+                             </div>
+                         </div>
+                     </section>
+                 </div>
+             </div>
+
+             <!-- TAB: WALLET SIMULATOR -->
+             <div class="tab-panel" id="tabSimulator" style="display: none;">
+                 <div class="simulator-layout">
+                     <!-- Interactive Propose Form -->
+                     <section class="panel simulator-form-panel">
+                         <div class="panel-header">
+                             <h2>Propose Transaction</h2>
+                             <span>Define signature variables</span>
+                         </div>
+                         <form id="simTxForm">
+                             <div class="form-row">
+                                 <div class="form-group">
+                                     <label for="simFrom">From Address</label>
+                                     <input type="text" id="simFrom" class="form-control" value="0x71C7656EC7ab88b098defB751B7401B5f6d8976F" required>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simTo">To Address (Target Smart Contract / Wallet)</label>
+                                     <input type="text" id="simTo" class="form-control" placeholder="e.g. 0xdeadbeef..." value="0xdeadbeef10101010101010101010101010dead10" required>
+                                 </div>
+                             </div>
+                             <div class="form-row">
+                                 <div class="form-group">
+                                     <label for="simValue">Value (ETH)</label>
+                                     <input type="number" id="simValue" class="form-control" step="0.0001" value="0.05" required>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simGasLimit">Gas Limit</label>
+                                     <input type="number" id="simGasLimit" class="form-control" value="120000" required>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simGasPrice">Gas Price (Gwei)</label>
+                                     <input type="number" id="simGasPrice" class="form-control" value="35" required>
+                                 </div>
+                             </div>
+                             <div class="form-row">
+                                 <div class="form-group">
+                                     <label for="simPermissions">Requested Privilege</label>
+                                     <select id="simPermissions" class="form-control">
+                                         <option value="None">None (Standard Transfer)</option>
+                                         <option value="Unlimited Approval">Unlimited Token Approval (ERC-20)</option>
+                                         <option value="Contract Creation">Contract Creation</option>
+                                     </select>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simApprovalAmount">Token Approval Amount</label>
+                                     <input type="number" id="simApprovalAmount" class="form-control" value="0">
+                                 </div>
+                             </div>
+                             <div class="form-row">
+                                 <div class="form-group">
+                                     <label for="simWalletAge">Sender Wallet Age (Days)</label>
+                                     <input type="number" id="simWalletAge" class="form-control" value="145" required>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simFailedCount">Failed Transactions (Past 24h)</label>
+                                     <input type="number" id="simFailedCount" class="form-control" value="0" required>
+                                 </div>
+                                 <div class="form-group">
+                                     <label for="simDomain">Associated Domain (DApp URL)</label>
+                                     <input type="text" id="simDomain" class="form-control" placeholder="e.g. claim-airdrop.net" value="blockshield-verify.io">
+                                 </div>
+                             </div>
+                             <button type="submit" class="auth-btn">Propose Sign Request</button>
+                         </form>
+                     </section>
+
+                     <!-- Simulated Browser / MetaMask Screen Mockup -->
+                     <section class="panel simulator-preview-panel">
+                         <div class="panel-header">
+                             <h2>dApp Web Sandbox</h2>
+                             <span>Pre-Sign Wallet Interceptor Simulator</span>
+                         </div>
+                         <div class="browser-mockup">
+                             <div class="browser-header">
+                                 <div class="browser-dots">
+                                     <span class="dot red"></span>
+                                     <span class="dot yellow"></span>
+                                     <span class="dot green"></span>
+                                 </div>
+                                 <div class="browser-url-bar" id="browserUrlText">http://blockshield-verify.io</div>
+                             </div>
+                             <div class="browser-body">
+                                 <div class="dapp-screen">
+                                     <div class="dapp-hero">
+                                         <h3>CLAIM FREE REWARDS</h3>
+                                         <p>Connect your wallet and sign the authorization payload to unlock premium access & rewards.</p>
+                                         <button type="button" class="dapp-btn" id="dappTriggerBtn">Verify & Claim Rewards</button>
+                                     </div>
+                                 </div>
+
+                                 <!-- MetaMask Overlay Mockup -->
+                                 <div class="wallet-overlay" id="walletOverlay" style="display: none;">
+                                     <div class="wallet-header">
+                                         <span class="wallet-logo-icon">🦊</span>
+                                         <span class="wallet-title">MetaMask</span>
+                                     </div>
+                                     <div class="wallet-content">
+                                         <h4>Signature Request</h4>
+                                         <div class="wallet-meta-item">
+                                             <strong>Target Address:</strong>
+                                             <span id="walletTargetText">0x00...0000</span>
+                                         </div>
+                                         <div class="wallet-meta-item">
+                                             <strong>Value:</strong>
+                                             <span id="walletValueText">0 ETH</span>
+                                         </div>
+                                         
+                                         <!-- BlockShield IPS Feedback Box -->
+                                         <div class="ips-feedback-box" id="ipsFeedbackBox">
+                                             <div class="ips-loading" id="ipsLoading">
+                                                 <span class="mini-spinner"></span>
+                                                 Checking BlockShield IPS Gateway...
+                                             </div>
+                                             <div class="ips-result" id="ipsResult" style="display: none;">
+                                                 <div class="ips-status-header">
+                                                     <span class="ips-status-badge" id="ipsStatusBadge">SAFE</span>
+                                                     <span class="ips-threat-desc" id="ipsReasonText">Analysis complete.</span>
+                                                 </div>
+                                                 <p class="ips-risk-scale">
+                                                     Risk Assessment Score: <span id="ipsScoreText">15</span>/100
+                                                 </p>
+                                             </div>
+                                         </div>
+                                         
+                                         <div class="wallet-warning-banner" id="walletWarningBanner" style="display: none;">
+                                             <label class="warning-checkbox-label">
+                                                 <input type="checkbox" id="walletAcceptWarning">
+                                                 I understand the risk and want to sign anyway.
+                                             </label>
+                                         </div>
+                                     </div>
+                                     <div class="wallet-actions">
+                                         <button type="button" class="wallet-btn cancel" id="walletCancelBtn">Reject</button>
+                                         <button type="button" class="wallet-btn confirm" id="walletConfirmBtn">Sign</button>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                     </section>
+                 </div>
+             </div>
+
+             <!-- TAB: SMART CONTRACT AUDITOR -->
+             <div class="tab-panel" id="tabAuditor" style="display: none;">
+                 <div class="auditor-layout">
+                     <!-- Input Solidity Code -->
+                     <section class="panel auditor-input-panel">
+                         <div class="panel-header">
+                             <h2>Solidity Static Analyzer</h2>
+                             <div class="panel-actions">
+                                 <select id="contractTemplateSelect" class="btn-small" style="background: var(--bg-secondary); border: 1px solid rgba(0, 255, 255, 0.1); color: var(--text-primary); cursor: pointer;">
+                                     <option value="">-- Load Vulnerable Template --</option>
+                                     <option value="reentrancy">Reentrancy Attack vulnerability</option>
+                                     <option value="selfdestruct">Unprotected Selfdestruct privilege bypass</option>
+                                     <option value="approval">Unsafe Infinite Approvals</option>
+                                     <option value="safe">Safe Store Contract</option>
+                                 </select>
+                             </div>
+                         </div>
+                         <div class="editor-container">
+                             <textarea id="contractCode" placeholder="// Paste Solidity code here or select a template above..."></textarea>
+                         </div>
+                         <button type="button" class="auth-btn" id="analyzeContractBtn" style="margin-top: 12px;">
+                             <span class="spinner" style="display: none;" id="auditorSpinner"></span>
+                             Run Smart Contract Audit
+                         </button>
+                     </section>
+
+                     <!-- Findings Details -->
+                     <section class="panel auditor-results-panel">
+                         <div class="panel-header">
+                             <h2>Audit Scan Findings</h2>
+                             <span class="badge" id="auditorSummaryBadge">No Scan Performed</span>
+                         </div>
+                         <div class="auditor-summary-stats" id="auditorSummaryStats" style="display: none;">
+                             <div class="stat-mini critical">
+                                 <span class="lbl">Critical</span>
+                                 <span class="val" id="auditorCritCount">0</span>
+                             </div>
+                             <div class="stat-mini high">
+                                 <span class="lbl">High</span>
+                                 <span class="val" id="auditorHighCount">0</span>
+                             </div>
+                             <div class="stat-mini medium">
+                                 <span class="lbl">Medium</span>
+                                 <span class="val" id="auditorMedCount">0</span>
+                             </div>
+                         </div>
+                         <div class="findings-list" id="findingsList">
+                             <div style="padding: 2rem; text-align: center; color: var(--text-dim);">
+                                 Load a contract template and press "Run Smart Contract Audit" to see vulnerabilities.
+                             </div>
+                         </div>
+                     </section>
+                 </div>
+             </div>
+
+             <!-- TAB: THREAT DB -->
+             <div class="tab-panel" id="tabThreatDb" style="display: none;">
+                 <div class="threat-db-layout">
+                     <!-- Add threat entry -->
+                     <section class="panel threat-add-panel">
+                         <div class="panel-header">
+                             <h2>Add Malicious Entity</h2>
+                             <span>Extend Reputation Ledger</span>
+                         </div>
+                         <form id="addThreatForm">
+                             <div class="form-group">
+                                 <label for="threatType">Entity Classification Type</label>
+                                 <select id="threatType" class="form-control" required>
+                                     <option value="wallet">Scam Wallet Address</option>
+                                     <option value="contract">Malicious Smart Contract</option>
+                                     <option value="domain">Phishing Web Domain</option>
+                                 </select>
+                             </div>
+                             <div class="form-group">
+                                 <label for="threatValue">Address / Domain Target</label>
+                                 <input type="text" id="threatValue" class="form-control" placeholder="e.g. 0xdeadbeef... or badlink.io" required>
+                             </div>
+                             <div class="form-group">
+                                 <label for="threatDescription">Reason Description</label>
+                                 <input type="text" id="threatDescription" class="form-control" placeholder="e.g. Drainer origin wallet" required>
+                             </div>
+                             <div class="form-group">
+                                 <label for="threatSeverity">Database Threat Level</label>
+                                 <select id="threatSeverity" class="form-control" required>
+                                     <option value="Critical">Critical (Immediate Block)</option>
+                                     <option value="High Risk">High Risk (Security Warning Alert)</option>
+                                     <option value="Medium Risk">Medium Risk (Elevated Classification)</option>
+                                 </select>
+                             </div>
+                             <button type="submit" class="auth-btn" id="addThreatBtn">
+                                 <span class="spinner" style="display: none;" id="threatAddSpinner"></span>
+                                 Registry bad entity
+                             </button>
+                         </form>
+                     </section>
+
+                     <!-- Malicious Registry view -->
+                     <section class="panel threat-view-panel">
+                         <div class="panel-header">
+                             <h2>Reputation Database</h2>
+                             <span>Active Blocklists & Phishing Domains</span>
+                         </div>
+                         <div class="threat-table-container">
+                             <table class="threat-table">
+                                 <thead>
+                                     <tr>
+                                         <th>Type</th>
+                                         <th>Target value</th>
+                                         <th>Severity</th>
+                                         <th>Reason</th>
+                                         <th>Registered At</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody id="threatsTableBody">
+                                     <!-- Filled by script.js -->
+                                 </tbody>
+                             </table>
+                         </div>
+                     </section>
+                 </div>
+             </div>
+         </div>
+     </main>
+
+     <!-- Detailed View Inspect Modal -->
+     <div class="modal" id="detailsModal">
+         <div class="modal-content">
+             <button class="close-btn" id="closeModalBtn">&times;</button>
+             <h3 class="modal-title" id="modalTitleText">Transaction Audit</h3>
+             <div class="detail-grid">
+                 <div class="detail-item full-width">
+                     <div class="detail-label">Transaction Hash</div>
+                     <div class="detail-value" id="modalTxHash">0x0000000000000000000000000000000000000000000000000000000000000000</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">From Address</div>
+                     <div class="detail-value" id="modalFrom">0x0000000000000000000000000000000000000000</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">To Address</div>
+                     <div class="detail-value" id="modalTo">0x0000000000000000000000000000000000000000</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">Anomaly Score</div>
+                     <div class="detail-value" id="modalAnomalyScore">0.0000</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">Severity Level</div>
+                     <div class="detail-value" id="modalSeverity">NONE</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">Gas Consumed</div>
+                     <div class="detail-value" id="modalGas">21,000</div>
+                 </div>
+                 <div class="detail-item">
+                     <div class="detail-label">Value (ETH)</div>
+                     <div class="detail-value" id="modalValue">0.0000 ETH</div>
+                 </div>
+             </div>
+             <button class="auth-btn" style="margin-top: 0;" id="modalAckBtn">Acknowledge Alert</button>
+         </div>
+     </div>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <div class="logo-icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>BlockShield</h3>
+                            <p>Advanced blockchain security monitoring and intrusion detection system powered by AI.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Product</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">Features</a></li>
+                        <li><a href="#">Security</a></li>
+                        <li><a href="#">API Documentation</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Whitepaper</a></li>
+                        <li><a href="#">Security Tips</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="footer-copyright">
+                    <p>&copy; 2026 BlockShield IDS. All rights reserved.</p>
+                </div>
+                <div class="footer-legal">
+                    <a href="#">Privacy Policy</a>
+                    <span class="separator">•</span>
+                    <a href="#">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

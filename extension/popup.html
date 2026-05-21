@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockShield IPS Firewall</title>
+    <style>
+        :root {
+            --neon-aqua: hsl(180, 100%, 50%);
+            --neon-aqua-light: hsl(180, 100%, 65%);
+            --rose-pink: hsl(330, 85%, 60%);
+            --rose-pink-light: hsl(330, 85%, 75%);
+            --purple: hsl(270, 80%, 60%);
+            --bg-primary: hsl(240, 15%, 8%);
+            --bg-secondary: hsl(240, 15%, 12%);
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --text-primary: hsl(0, 0%, 95%);
+            --text-secondary: hsl(0, 0%, 70%);
+            --text-dim: hsl(0, 0%, 50%);
+            --glow-aqua: 0 0 15px rgba(0, 255, 255, 0.25);
+            --glow-rose: 0 0 15px rgba(255, 105, 180, 0.25);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            width: 320px;
+            padding: 16px;
+            overflow-hidden: hidden;
+        }
+
+        /* Container */
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            padding-bottom: 12px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--neon-aqua), var(--purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-primary);
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: var(--glow-aqua);
+        }
+
+        .logo-title h1 {
+            font-size: 16px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--neon-aqua), var(--rose-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-title span {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: block;
+        }
+
+        /* Firewall Status Widget */
+        .status-container {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .status-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .status-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--neon-aqua);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--neon-aqua);
+            border-radius: 50%;
+            box-shadow: var(--glow-aqua);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: rgba(0, 255, 255, 0.2);
+            border-color: var(--neon-aqua);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+            background-color: var(--neon-aqua);
+            box-shadow: var(--glow-aqua);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-lbl {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* Activity / Protection List */
+        .logs-panel {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .logs-title {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 6px;
+            border-left: 2px solid var(--neon-aqua);
+        }
+
+        .log-item.block {
+            border-left-color: var(--rose-pink);
+        }
+
+        .log-tx {
+            font-family: monospace;
+            color: var(--text-secondary);
+        }
+
+        .log-action {
+            font-weight: 600;
+            color: var(--neon-aqua);
+        }
+
+        .log-action.block {
+            color: var(--rose-pink);
+        }
+
+        /* Footer Link */
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .footer a {
+            color: var(--neon-aqua);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo-icon">S</div>
+                <div class="logo-title">
+                    <h1>BlockShield</h1>
+                    <span>Intrusion Prevention</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Toggle -->
+        <div class="status-container">
+            <div class="status-details">
+                <span class="status-label">IPS Shield</span>
+                <div class="status-value" id="statusDisplay">
+                    <span class="pulse-dot" id="statusDot"></span>
+                    <span id="statusText">ACTIVE</span>
+                </div>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="shieldToggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-val" id="statsScanned">0</div>
+                <div class="stat-lbl">Scanned</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="statsBlocked" style="color: var(--rose-pink);">0</div>
+                <div class="stat-lbl">Blocked</div>
+            </div>
+        </div>
+
+        <!-- Recent Logs -->
+        <div class="logs-panel">
+            <div class="logs-title">
+                <span>Recent Interceptions</span>
+            </div>
+            <div class="logs-list" id="logsList">
+                <div style="padding: 12px; text-align: center; color: var(--text-dim); font-size: 11px;">
+                    No transactions captured yet.
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer link back to App -->
+        <div class="footer">
+            BlockShield Management Dashboard:<br>
+            <a href="http://127.0.0.1:8000" target="_blank">127.0.0.1:8000</a>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

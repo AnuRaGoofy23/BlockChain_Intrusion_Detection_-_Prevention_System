@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "BlockShield IPS Firewall",
+  "version": "1.0",
+  "description": "Real-time pre-signature transaction protection middleware by BlockShield",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
