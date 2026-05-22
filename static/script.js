@@ -98,6 +98,10 @@ class BlockShieldApp {
         this.walletStatusText = document.getElementById('walletStatusText');
         this.walletAddressText = document.getElementById('walletAddressText');
         this.walletBalanceText = document.getElementById('walletBalanceText');
+        this.walletNetworkText = document.getElementById('walletNetworkText');
+        this.networkAlertBar = document.getElementById('networkAlertBar');
+        this.currentWalletAddress = null;
+        this.blockListenerProvider = null;
     }
 
     setupAuthHandlers() {
@@ -851,6 +855,15 @@ contract SafeStore {
         window.ethereum.on('accountsChanged', (accounts) => {
             console.log('MetaMask account changed:', accounts);
             if (accounts.length === 0) {
+                this.currentWalletAddress = null;
+                if (this.blockListenerProvider) {
+                    try {
+                        this.blockListenerProvider.removeAllListeners("block");
+                    } catch (e) {
+                        console.error("Error removing block listeners on accountsChanged:", e);
+                    }
+                    this.blockListenerProvider = null;
+                }
                 this.updateWalletUI(null, null);
             } else {
                 this.fetchWalletDetails(accounts[0]);
@@ -915,20 +928,81 @@ contract SafeStore {
     }
 
     async fetchWalletDetails(address) {
+        if (!address) return;
+        this.currentWalletAddress = address;
+
+        // Set Loading state
+        this.walletBalanceText.className = 'wallet-bal loading';
+        this.walletBalanceText.textContent = 'Loading...';
+        if (this.walletNetworkText) {
+            this.walletNetworkText.textContent = 'Detecting...';
+            this.walletNetworkText.style.color = 'var(--text-dim)';
+        }
+
         try {
             const provider = new ethers.BrowserProvider(window.ethereum);
+            const network = await provider.getNetwork();
+            const chainId = Number(network.chainId);
+            const isGanache = chainId === 1337 || chainId === 5777;
+
+            // Network validation display
+            if (this.networkAlertBar) {
+                this.networkAlertBar.style.display = isGanache ? 'none' : 'block';
+            }
+
+            let networkName = 'Unknown Network';
+            if (chainId === 1) networkName = 'Ethereum Mainnet';
+            else if (chainId === 11155111) networkName = 'Sepolia Testnet';
+            else if (chainId === 1337) networkName = 'Ganache (1337)';
+            else if (chainId === 5777) networkName = 'Ganache (5777)';
+            else networkName = `Chain ID: ${chainId}`;
+
             const balance = await provider.getBalance(address);
             const formattedBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
-            
-            this.updateWalletUI(address, formattedBalance);
+
+            this.updateWalletUI(address, formattedBalance, networkName, isGanache);
+            this.setupBlockListener(provider, address);
         } catch (err) {
             console.error('Failed to retrieve wallet details:', err);
-            alert('Failed to retrieve wallet balance: ' + (err.message || err));
-            this.updateWalletUI(address, '0.0000');
+            this.walletBalanceText.className = 'wallet-bal error';
+            this.walletBalanceText.textContent = 'Error';
+            if (this.walletNetworkText) {
+                this.walletNetworkText.textContent = 'Failed to fetch';
+                this.walletNetworkText.style.color = 'var(--rose-pink)';
+            }
+            this.updateWalletUI(address, 'Error', 'Error', false);
         }
     }
 
-    updateWalletUI(address, balance) {
+    setupBlockListener(provider, address) {
+        if (this.blockListenerProvider) {
+            try {
+                this.blockListenerProvider.removeAllListeners("block");
+            } catch (e) {
+                console.error("Error clearing previous block listener:", e);
+            }
+        }
+        this.blockListenerProvider = provider;
+        try {
+            provider.on("block", async (blockNumber) => {
+                console.log("New block mined, refreshing balance:", blockNumber);
+                if (this.currentWalletAddress === address) {
+                    try {
+                        const balance = await provider.getBalance(address);
+                        const formattedBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
+                        this.walletBalanceText.className = 'wallet-bal';
+                        this.walletBalanceText.textContent = `${formattedBalance} ETH`;
+                    } catch (e) {
+                        console.error("Failed to refresh balance on block:", e);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Failed to set block listener:", e);
+        }
+    }
+
+    updateWalletUI(address, balance, networkName = null, isGanache = true) {
         if (address) {
             this.connectWalletBtn.classList.add('connected');
             this.connectWalletText.textContent = 'Disconnect';
@@ -938,7 +1012,19 @@ contract SafeStore {
             const truncated = address.substring(0, 6) + '...' + address.substring(address.length - 4);
             this.walletAddressText.textContent = truncated;
             this.walletAddressText.title = address;
-            this.walletBalanceText.textContent = `${balance} ETH`;
+            
+            if (balance === 'Error') {
+                this.walletBalanceText.className = 'wallet-bal error';
+                this.walletBalanceText.textContent = 'Error';
+            } else {
+                this.walletBalanceText.className = 'wallet-bal';
+                this.walletBalanceText.textContent = `${balance} ETH`;
+            }
+
+            if (this.walletNetworkText && networkName) {
+                this.walletNetworkText.textContent = networkName;
+                this.walletNetworkText.style.color = isGanache ? '#10b981' : '#f43f5e';
+            }
         } else {
             this.connectWalletBtn.classList.remove('connected');
             this.connectWalletText.textContent = 'Connect Wallet';
@@ -947,11 +1033,26 @@ contract SafeStore {
             this.walletStatusText.className = 'wallet-status disconnected';
             this.walletAddressText.textContent = '0x...';
             this.walletBalanceText.textContent = '0.00 ETH';
+            if (this.walletNetworkText) {
+                this.walletNetworkText.textContent = 'Unknown Network';
+            }
+            if (this.networkAlertBar) {
+                this.networkAlertBar.style.display = 'none';
+            }
         }
     }
 
     disconnectWallet() {
         console.log('User requested wallet disconnect.');
+        this.currentWalletAddress = null;
+        if (this.blockListenerProvider) {
+            try {
+                this.blockListenerProvider.removeAllListeners("block");
+            } catch (e) {
+                console.error("Error removing block listeners on disconnect:", e);
+            }
+            this.blockListenerProvider = null;
+        }
         this.updateWalletUI(null, null);
         alert('Disconnected from BlockShield. (To fully revoke permissions, manage connections in your MetaMask extension)');
     }

@@ -15,6 +15,14 @@
 </head>
 
 <body>
+    <!-- Network Warning Alert -->
+    <div class="network-alert-bar" id="networkAlertBar" style="display: none;">
+        <div class="network-alert-content">
+            <span class="alert-icon">⚠️</span>
+            <span><strong>Wrong Network Detected!</strong> Please switch MetaMask to the local Ganache network (RPC: http://127.0.0.1:7545 or http://127.0.0.1:8545, Chain ID: 1337 or 5777).</span>
+        </div>
+    </div>
+
     <!-- Auth Overlay Portal -->
     <div class="auth-overlay" id="authOverlay">
         <!-- Login Card -->
@@ -125,11 +133,12 @@
                              <span class="wallet-icon">🦊</span>
                              <span id="connectWalletText">Connect Wallet</span>
                          </button>
-                         <div class="wallet-info-display" id="walletInfoDisplay" style="display: none;">
-                             <span class="wallet-status" id="walletStatusText">Disconnected</span>
-                             <span class="wallet-addr" id="walletAddressText">0x...</span>
-                             <span class="wallet-bal" id="walletBalanceText">0.00 ETH</span>
-                         </div>
+                          <div class="wallet-info-display" id="walletInfoDisplay" style="display: none;">
+                              <span class="wallet-status" id="walletStatusText">Disconnected</span>
+                              <span class="wallet-net" id="walletNetworkText">Unknown Network</span>
+                              <span class="wallet-addr" id="walletAddressText">0x...</span>
+                              <span class="wallet-bal" id="walletBalanceText">0.00 ETH</span>
+                          </div>
                      </div>
 
                      <button class="btn-logout" id="logoutBtn">Logout</button>
