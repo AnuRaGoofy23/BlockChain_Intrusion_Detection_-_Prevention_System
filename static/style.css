@@ -2094,4 +2094,51 @@ select.form-control {
     padding-left: 0.75rem;
 }
 
+.wallet-bal.loading {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.wallet-bal.error {
+    color: var(--rose-pink);
+    font-style: italic;
+}
+
+.wallet-net {
+    font-weight: 600;
+    color: var(--neon-aqua);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 0.75rem;
+}
+
+/* Network Alert Bar */
+.network-alert-bar {
+    background: linear-gradient(90deg, #ff8e53, #ff6b6b);
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    position: relative;
+    z-index: 1001;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    animation: slideDown 0.3s ease-out;
+}
+
+.network-alert-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.network-alert-content .alert-icon {
+    font-size: 1.1rem;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
+
 
