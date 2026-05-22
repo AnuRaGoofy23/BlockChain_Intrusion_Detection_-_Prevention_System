@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -760,6 +763,117 @@ async def simulate_transactions(count: int = 5, db: Session = Depends(database.g
         await asyncio.sleep(0.1) # Small delay
         
     return {"status": "success", "transactions_generated": generated}
+
+# REST APIs for threat management connected to local DB & Ganache Blockchain
+
+@app.post("/add-threat")
+def add_threat_route(threat: ThreatCreate, db: Session = Depends(database.get_db)):
+    """
+    Logs a new threat entity locally in the database and stores it on the Ganache blockchain.
+    """
+    existing = db.query(models.ThreatEntity).filter(models.ThreatEntity.value == threat.value).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Threat entity value already registered locally.")
+    
+    new_threat = models.ThreatEntity(
+        entity_type=threat.entity_type,
+        value=threat.value,
+        description=threat.description,
+        severity=threat.severity
+    )
+    db.add(new_threat)
+    db.commit()
+    db.refresh(new_threat)
+    
+    blockchain_tx = None
+    blockchain_status = "unattempted"
+    blockchain_error = None
+    
+    try:
+        receipt = blockchain_service.store_threat_log_on_blockchain(
+            entity_type=threat.entity_type,
+            value=threat.value,
+            description=threat.description,
+            severity=threat.severity
+        )
+        blockchain_tx = receipt.get("tx_hash")
+        blockchain_status = "success"
+    except Exception as e:
+        blockchain_status = "failed"
+        blockchain_error = str(e)
+        print(f"Failed to log threat on-chain: {e}")
+        
+    return {
+        "status": "success" if blockchain_status == "success" else "partial_success",
+        "message": "Threat logged locally and on blockchain successfully." if blockchain_status == "success" else "Threat logged locally, but blockchain write failed.",
+        "local_data": {
+            "id": new_threat.id,
+            "entity_type": new_threat.entity_type,
+            "value": new_threat.value,
+            "severity": new_threat.severity
+        },
+        "blockchain": {
+            "status": blockchain_status,
+            "tx_hash": blockchain_tx,
+            "error": blockchain_error
+        }
+    }
+
+@app.get("/threats")
+def get_all_threats_route(db: Session = Depends(database.get_db)):
+    """
+    Fetches all registered threats. Attempts to fetch from the Ganache blockchain first,
+    falling back to the local database registry if needed.
+    """
+    try:
+        onchain_threats = blockchain_service.fetch_threat_logs_from_blockchain()
+        if onchain_threats:
+            return {
+                "source": "blockchain",
+                "count": len(onchain_threats),
+                "threats": onchain_threats
+            }
+    except Exception as e:
+        print(f"Fallback to database due to blockchain read error: {e}")
+        
+    local_threats = db.query(models.ThreatEntity).order_by(models.ThreatEntity.added_at.desc()).all()
+    formatted_local = [
+        {
+            "id": t.id,
+            "entity_type": t.entity_type,
+            "value": t.value,
+            "description": t.description,
+            "severity": t.severity,
+            "timestamp": int(t.added_at.timestamp()) if t.added_at else None,
+            "reporter": "database_fallback"
+        }
+        for t in local_threats
+    ]
+    return {
+        "source": "database",
+        "count": len(formatted_local),
+        "threats": formatted_local
+    }
+
+@app.get("/verify/{id}")
+def verify_threat_route(id: int, value: str):
+    """
+    Verifies that a threat record exists on the Ganache blockchain for the given ID
+    and that its value matches the provided value parameter.
+    """
+    if not value:
+        raise HTTPException(status_code=400, detail="Missing required query parameter: 'value'")
+        
+    try:
+        is_verified = blockchain_service.verify_threat_record_on_blockchain(id, value)
+        return {
+            "id": id,
+            "value": value,
+            "verified": is_verified,
+            "message": "Threat record verified on-chain." if is_verified else "Verification failed. Threat value mismatch or ID out of range."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"On-chain verification failed: {e}")
 
 # Create static folder and serve frontend
 os.makedirs("static", exist_ok=True)

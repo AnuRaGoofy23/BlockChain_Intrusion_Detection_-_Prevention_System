@@ -1,12 +1,49 @@
 from web3 import Web3
 import os
+import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Connect to Ganache or local testnet by default
-BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_URL", "http://127.0.0.1:8545")
+BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_URL", "http://127.0.0.1:7545")
 
 class BlockchainService:
     def __init__(self):
         self.w3 = Web3(Web3.HTTPProvider(BLOCKCHAIN_URL))
+        
+        # Load contract address
+        contract_addr = os.getenv("THREAT_LOGGER_ADDRESS")
+        if not contract_addr:
+            try:
+                addr_path = os.path.join(os.path.dirname(__file__), "contracts", "contract_address.json")
+                if os.path.exists(addr_path):
+                    with open(addr_path, "r") as f:
+                        contract_addr = json.load(f).get("address")
+            except Exception as e:
+                print(f"Error loading contract address from JSON fallback: {e}")
+        
+        # Load ABI
+        abi = None
+        try:
+            abi_path = os.path.join(os.path.dirname(__file__), "contracts", "ThreatLogger.json")
+            if os.path.exists(abi_path):
+                with open(abi_path, "r") as f:
+                    abi = json.load(f).get("abi")
+        except Exception as e:
+            print(f"Error loading ThreatLogger ABI: {e}")
+            
+        self.contract = None
+        if contract_addr and abi:
+            try:
+                self.contract_address = self.w3.to_checksum_address(contract_addr)
+                self.contract = self.w3.eth.contract(address=self.contract_address, abi=abi)
+                print(f"Successfully loaded ThreatLogger contract at address: {self.contract_address}")
+            except Exception as e:
+                print(f"Error initializing contract: {e}")
+        else:
+            print("ThreatLogger contract not initialized: contract address or ABI JSON is missing.")
     
     def is_connected(self):
         return self.w3.is_connected()
@@ -163,6 +200,84 @@ class BlockchainService:
         except Exception as e:
             print(f"Error fetching transactions for block {block_identifier}: {e}")
             return []
+
+    def store_threat_log_on_blockchain(self, entity_type: str, value: str, description: str, severity: str) -> dict:
+        """Stores a threat log on the blockchain by executing a transaction."""
+        if not self.contract:
+            raise ValueError("ThreatLogger contract is not initialized.")
+        
+        wallet_address = os.getenv("WALLET_ADDRESS")
+        private_key = os.getenv("PRIVATE_KEY")
+        
+        if not wallet_address or not private_key:
+            raise ValueError("WALLET_ADDRESS and PRIVATE_KEY environment variables must be set.")
+            
+        wallet_address = self.w3.to_checksum_address(wallet_address)
+        if private_key.startswith("0x"):
+            private_key = private_key[2:]
+            
+        nonce = self.w3.eth.get_transaction_count(wallet_address)
+        
+        tx = self.contract.functions.addThreat(
+            entity_type,
+            value,
+            description,
+            severity
+        ).build_transaction({
+            'from': wallet_address,
+            'nonce': nonce,
+            'gas': 500000,
+            'gasPrice': self.w3.eth.gas_price,
+            'chainId': self.w3.eth.chain_id
+        })
+        
+        signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=private_key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        return {
+            "tx_hash": tx_hash.hex(),
+            "block_number": receipt.blockNumber,
+            "gas_used": receipt.gasUsed,
+            "status": receipt.status
+        }
+
+    def fetch_threat_logs_from_blockchain(self) -> list:
+        """Fetches all threat logs registered on the smart contract."""
+        if not self.contract:
+            print("ThreatLogger contract is not initialized.")
+            return []
+            
+        try:
+            count = self.contract.functions.threatCount().call()
+            threats = []
+            for i in range(1, count + 1):
+                threat_data = self.contract.functions.getThreat(i).call()
+                threats.append({
+                    "id": threat_data[0],
+                    "entity_type": threat_data[1],
+                    "value": threat_data[2],
+                    "description": threat_data[3],
+                    "severity": threat_data[4],
+                    "timestamp": threat_data[5],
+                    "reporter": threat_data[6]
+                })
+            return threats
+        except Exception as e:
+            print(f"Error fetching threats from blockchain: {e}")
+            return []
+
+    def verify_threat_record_on_blockchain(self, id: int, value: str) -> bool:
+        """Verifies if the threat record with the given ID matches the provided value."""
+        if not self.contract:
+            print("ThreatLogger contract is not initialized.")
+            return False
+            
+        try:
+            return self.contract.functions.verifyThreat(id, value).call()
+        except Exception as e:
+            print(f"Error verifying threat on blockchain: {e}")
+            return False
 
 blockchain_service = BlockchainService()
 
