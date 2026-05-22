@@ -121,8 +121,14 @@ class BlockShieldApp {
                 });
                 
                 if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.detail || 'Authorization failed');
+                    let errMsg = 'Authorization failed';
+                    try {
+                        const err = await response.json();
+                        errMsg = err.detail || errMsg;
+                    } catch (_) {
+                        errMsg = await response.text();
+                    }
+                    throw new Error(errMsg);
                 }
                 
                 const data = await response.json();
@@ -148,8 +154,14 @@ class BlockShieldApp {
                 });
                 
                 if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.detail || 'Registration failed');
+                    let errMsg = 'Registration failed';
+                    try {
+                        const err = await response.json();
+                        errMsg = err.detail || errMsg;
+                    } catch (_) {
+                        errMsg = await response.text();
+                    }
+                    throw new Error(errMsg);
                 }
                 
                 const data = await response.json();
