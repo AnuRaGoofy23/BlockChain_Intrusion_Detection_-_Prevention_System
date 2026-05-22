@@ -2007,3 +2007,91 @@ select.form-control {
     }
 }
 
+/* ==========================================
+   METAMASK WALLET CONNECTIVITY STYLES
+   ========================================== */
+.wallet-connect-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#connectWalletBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: rgba(246, 133, 27, 0.1);
+    color: #f6851b;
+    border: 1px solid rgba(246, 133, 27, 0.2);
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+#connectWalletBtn:hover {
+    background: rgba(246, 133, 27, 0.2);
+    box-shadow: 0 0 15px rgba(246, 133, 27, 0.4);
+    transform: translateY(-1px);
+}
+
+#connectWalletBtn.connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+#connectWalletBtn.connected:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.wallet-info-display {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--bg-glass);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+    font-size: 0.8rem;
+}
+
+.wallet-status {
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+}
+
+.wallet-status.connected {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+}
+
+.wallet-status.disconnected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.wallet-addr {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.wallet-bal {
+    font-weight: 700;
+    color: var(--neon-aqua);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 0.75rem;
+}
+
+
