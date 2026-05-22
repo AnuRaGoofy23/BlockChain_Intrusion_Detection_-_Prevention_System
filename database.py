@@ -2,6 +2,11 @@ import os
 import shutil
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 
 # Use PostgreSQL by default, fallback to SQLite if DB_URL is missing
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bids.db")
