@@ -118,6 +118,20 @@
                          <span class="pulse" id="statusPulse"></span>
                          <span class="status-text" id="statusText">CONNECTING</span>
                      </div>
+
+                     <!-- MetaMask Connect Wallet Container -->
+                     <div class="wallet-connect-container">
+                         <button class="wallet-btn" id="connectWalletBtn">
+                             <span class="wallet-icon">🦊</span>
+                             <span id="connectWalletText">Connect Wallet</span>
+                         </button>
+                         <div class="wallet-info-display" id="walletInfoDisplay" style="display: none;">
+                             <span class="wallet-status" id="walletStatusText">Disconnected</span>
+                             <span class="wallet-addr" id="walletAddressText">0x...</span>
+                             <span class="wallet-bal" id="walletBalanceText">0.00 ETH</span>
+                         </div>
+                     </div>
+
                      <button class="btn-logout" id="logoutBtn">Logout</button>
                  </div>
              </div>
@@ -685,6 +699,8 @@
         </div>
     </footer>
 
+    <!-- Ethers.js v6 CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <script src="/static/script.js"></script>
 </body>
 

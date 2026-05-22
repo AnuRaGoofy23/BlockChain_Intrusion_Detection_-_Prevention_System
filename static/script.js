@@ -90,6 +90,14 @@ class BlockShieldApp {
         this.modalSeverity = document.getElementById('modalSeverity');
         this.modalGas = document.getElementById('modalGas');
         this.modalValue = document.getElementById('modalValue');
+
+        // Wallet connection elements
+        this.connectWalletBtn = document.getElementById('connectWalletBtn');
+        this.connectWalletText = document.getElementById('connectWalletText');
+        this.walletInfoDisplay = document.getElementById('walletInfoDisplay');
+        this.walletStatusText = document.getElementById('walletStatusText');
+        this.walletAddressText = document.getElementById('walletAddressText');
+        this.walletBalanceText = document.getElementById('walletBalanceText');
     }
 
     setupAuthHandlers() {
@@ -200,6 +208,7 @@ class BlockShieldApp {
         this.setupSimulatorController();
         this.setupAuditorController();
         this.setupThreatDbController();
+        this.setupWalletConnection();
         
         // Initial Fetch
         await this.fetchLogs();
@@ -814,6 +823,137 @@ contract SafeStore {
                 }
             });
         }
+    }
+
+    setupWalletConnection() {
+        if (!this.connectWalletBtn) return;
+
+        // Check if MetaMask is installed
+        if (typeof window.ethereum === 'undefined') {
+            console.log('MetaMask not detected.');
+            this.updateWalletUI(null, null);
+            this.connectWalletBtn.addEventListener('click', () => {
+                alert('MetaMask is not installed. Please install the MetaMask extension to use wallet features!');
+            });
+            return;
+        }
+
+        // Setup click listener for Connect Wallet button
+        this.connectWalletBtn.addEventListener('click', async () => {
+            if (this.connectWalletBtn.classList.contains('connected')) {
+                this.disconnectWallet();
+            } else {
+                await this.connectWallet();
+            }
+        });
+
+        // Setup MetaMask event listeners
+        window.ethereum.on('accountsChanged', (accounts) => {
+            console.log('MetaMask account changed:', accounts);
+            if (accounts.length === 0) {
+                this.updateWalletUI(null, null);
+            } else {
+                this.fetchWalletDetails(accounts[0]);
+            }
+        });
+
+        window.ethereum.on('chainChanged', (chainId) => {
+            console.log('MetaMask network changed:', chainId);
+            window.location.reload();
+        });
+
+        // Automatically detect if wallet is already connected on reload
+        this.checkAlreadyConnected();
+    }
+
+    async checkAlreadyConnected() {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_accounts', []);
+            if (accounts.length > 0) {
+                console.log('Detected existing MetaMask connection:', accounts[0]);
+                await this.fetchWalletDetails(accounts[0]);
+            } else {
+                this.updateWalletUI(null, null);
+            }
+        } catch (err) {
+            console.error('Error checking existing wallet connection:', err);
+            this.updateWalletUI(null, null);
+        }
+    }
+
+    async connectWallet() {
+        if (!window.ethereum) return;
+        
+        this.connectWalletBtn.disabled = true;
+        const originalText = this.connectWalletText.textContent;
+        this.connectWalletText.textContent = 'Connecting...';
+
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_requestAccounts', []);
+            
+            if (accounts.length > 0) {
+                await this.fetchWalletDetails(accounts[0]);
+            } else {
+                throw new Error('No accounts returned from MetaMask.');
+            }
+        } catch (err) {
+            console.error('MetaMask connection error:', err);
+            if (err.code === 4001) {
+                alert('Connection request rejected. Please authorize MetaMask connectivity to access dashboard features!');
+            } else if (err.code === -32002) {
+                alert('Connection request already pending in MetaMask. Please open the MetaMask extension and approve.');
+            } else {
+                alert('Failed to connect MetaMask: ' + (err.message || err));
+            }
+            this.updateWalletUI(null, null);
+        } finally {
+            this.connectWalletBtn.disabled = false;
+            this.connectWalletText.textContent = this.connectWalletBtn.classList.contains('connected') ? 'Disconnect' : originalText;
+        }
+    }
+
+    async fetchWalletDetails(address) {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const balance = await provider.getBalance(address);
+            const formattedBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
+            
+            this.updateWalletUI(address, formattedBalance);
+        } catch (err) {
+            console.error('Failed to retrieve wallet details:', err);
+            alert('Failed to retrieve wallet balance: ' + (err.message || err));
+            this.updateWalletUI(address, '0.0000');
+        }
+    }
+
+    updateWalletUI(address, balance) {
+        if (address) {
+            this.connectWalletBtn.classList.add('connected');
+            this.connectWalletText.textContent = 'Disconnect';
+            this.walletInfoDisplay.style.display = 'flex';
+            this.walletStatusText.textContent = 'Connected';
+            this.walletStatusText.className = 'wallet-status connected';
+            const truncated = address.substring(0, 6) + '...' + address.substring(address.length - 4);
+            this.walletAddressText.textContent = truncated;
+            this.walletAddressText.title = address;
+            this.walletBalanceText.textContent = `${balance} ETH`;
+        } else {
+            this.connectWalletBtn.classList.remove('connected');
+            this.connectWalletText.textContent = 'Connect Wallet';
+            this.walletInfoDisplay.style.display = 'none';
+            this.walletStatusText.textContent = 'Disconnected';
+            this.walletStatusText.className = 'wallet-status disconnected';
+            this.walletAddressText.textContent = '0x...';
+            this.walletBalanceText.textContent = '0.00 ETH';
+        }
+    }
+
+    disconnectWallet() {
+        console.log('User requested wallet disconnect.');
+        this.updateWalletUI(null, null);
+        alert('Disconnected from BlockShield. (To fully revoke permissions, manage connections in your MetaMask extension)');
     }
 
     async fetchThreats() {
