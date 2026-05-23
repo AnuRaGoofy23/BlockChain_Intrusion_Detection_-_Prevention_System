@@ -96,7 +96,7 @@
                  </div>
                  <nav class="nav">
                      <a href="#" class="nav-link active" id="navDashboard">Dashboard</a>
-                     <a href="#" class="nav-link" id="navSimulator">Wallet Simulator</a>
+                     <a href="#" class="nav-link" id="navSimulator">Wallet</a>
                      <a href="#" class="nav-link" id="navAuditor">Contract Auditor</a>
                      <a href="#" class="nav-link" id="navThreatDb">Threat DB</a>
                  </nav>
@@ -253,6 +253,31 @@
                          </form>
                      </section>
 
+                     <!-- MetaMask Wallet Monitor -->
+                     <section class="panel wallet-monitor-panel">
+                         <div class="panel-header">
+                             <h2>MetaMask Wallet Monitor</h2>
+                             <span class="wallet-monitor-badge offline" id="monitorNetBadge">Offline</span>
+                         </div>
+                         <div class="wallet-monitor-card">
+                             <div class="wallet-monitor-icon">🦊</div>
+                             <div class="wallet-monitor-details">
+                                 <div class="wallet-monitor-row">
+                                     <span class="monitor-label">Address:</span>
+                                     <span class="monitor-value monospace" id="monitorAddress">0xDisconnected</span>
+                                 </div>
+                                 <div class="wallet-monitor-row">
+                                     <span class="monitor-label">Balance:</span>
+                                     <span class="monitor-value balance-value" id="monitorBalance">0.0000 ETH</span>
+                                 </div>
+                                 <div class="wallet-monitor-row">
+                                     <span class="monitor-label">Sync Block:</span>
+                                     <span class="monitor-value" id="monitorBlock">#0</span>
+                                 </div>
+                             </div>
+                         </div>
+                     </section>
+
                      <!-- Network Activity Graph -->
                      <section class="panel network-activity">
                          <div class="panel-header">
@@ -338,7 +363,7 @@
                  </div>
              </div>
 
-             <!-- TAB: WALLET SIMULATOR -->
+             <!-- TAB: WALLET -->
              <div class="tab-panel" id="tabSimulator" style="display: none;">
                  <div class="simulator-layout">
                      <!-- Interactive Propose Form -->
@@ -407,8 +432,8 @@
                      <!-- Simulated Browser / MetaMask Screen Mockup -->
                      <section class="panel simulator-preview-panel">
                          <div class="panel-header">
-                             <h2>dApp Web Sandbox</h2>
-                             <span>Pre-Sign Wallet Interceptor Simulator</span>
+                             <h2>dApp Portal</h2>
+                             <span>Pre-Sign Wallet Interceptor</span>
                          </div>
                          <div class="browser-mockup">
                              <div class="browser-header">

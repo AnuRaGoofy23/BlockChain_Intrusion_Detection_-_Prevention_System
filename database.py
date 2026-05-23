@@ -36,7 +36,14 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    # Optimized configuration for Vercel/Serverless environments to prevent connection exhaustion
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_size=3,
+        max_overflow=0,
+        pool_recycle=1800,
+        pool_pre_ping=True
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
