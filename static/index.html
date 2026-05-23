@@ -443,6 +443,11 @@
                                      <span class="dot green"></span>
                                  </div>
                                  <div class="browser-url-bar" id="browserUrlText">http://blockshield-verify.io</div>
+                                 <button type="button" class="discrete-filter-btn" id="discreteFilterBtn" title="Filter settings">
+                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                                     </svg>
+                                 </button>
                              </div>
                              <div class="browser-body">
                                  <div class="dapp-screen">
@@ -732,6 +737,25 @@
             </div>
         </div>
     </footer>
+
+    <!-- Webapp Secure Vault Window -->
+    <div class="webapp-vault-window" id="webappVaultWindow">
+        <div class="vault-window-header">
+            <span class="vault-title-icon">🔒</span>
+            <span class="vault-title-text">Webapp Secure Vault</span>
+            <button class="vault-minimize-btn" id="vaultMinimizeBtn">&minus;</button>
+        </div>
+        <div class="vault-window-body" id="webappVaultBody">
+            <div class="vault-balance-container">
+                <div class="vault-balance-label">Available Vault Balance</div>
+                <div class="vault-balance-value" id="webappVaultBalanceText">10.0000 ETH</div>
+            </div>
+            <div class="vault-status-indicator">
+                <span class="vault-status-dot"></span>
+                <span class="vault-status-label">Secured by BlockShield</span>
+            </div>
+        </div>
+    </div>
 
     <!-- Ethers.js v6 CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
