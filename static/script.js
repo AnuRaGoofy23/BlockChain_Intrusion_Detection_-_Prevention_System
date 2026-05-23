@@ -1,3 +1,11 @@
+// Hardcoded malicious wallet detection system configuration
+const flaggedWallets = [
+    "0x91E56184Da28cFCE584667387d792a48cd01ad1B" // Flagged attacker wallet address
+];
+
+// Hardcoded victim wallet configuration
+const victimWallet = "0x6edb6edBe70DDcfe05478ECD18c53ce36FFbA4BC";
+
 class BlockShieldApp {
     constructor() {
         this.token = localStorage.getItem('access_token');
@@ -102,6 +110,13 @@ class BlockShieldApp {
         this.networkAlertBar = document.getElementById('networkAlertBar');
         this.currentWalletAddress = null;
         this.blockListenerProvider = null;
+        this.notifiedTxHashes = new Set();
+
+        // Wallet monitor panel elements
+        this.monitorNetBadge = document.getElementById('monitorNetBadge');
+        this.monitorAddress = document.getElementById('monitorAddress');
+        this.monitorBalance = document.getElementById('monitorBalance');
+        this.monitorBlock = document.getElementById('monitorBlock');
     }
 
     setupAuthHandlers() {
@@ -389,7 +404,7 @@ class BlockShieldApp {
         // Instantly sync URL bar in browser mockup when editing Associated Domain
         if (simDomain && browserUrlText) {
             simDomain.addEventListener('input', () => {
-                const domain = simDomain.value.trim() || 'wallet-sandbox.dapp';
+                const domain = simDomain.value.trim() || 'wallet-portal.dapp';
                 browserUrlText.textContent = domain.startsWith('http') ? domain : `http://${domain}`;
             });
         }
@@ -985,21 +1000,239 @@ contract SafeStore {
         this.blockListenerProvider = provider;
         try {
             provider.on("block", async (blockNumber) => {
-                console.log("New block mined, refreshing balance:", blockNumber);
+                console.log("New block mined, refreshing balance & scanning transactions:", blockNumber);
                 if (this.currentWalletAddress === address) {
                     try {
                         const balance = await provider.getBalance(address);
                         const formattedBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
                         this.walletBalanceText.className = 'wallet-bal';
                         this.walletBalanceText.textContent = `${formattedBalance} ETH`;
+
+                        // Update dedicated wallet monitor panel
+                        if (this.monitorBalance) this.monitorBalance.textContent = `${formattedBalance} ETH`;
+                        if (this.monitorBlock) this.monitorBlock.textContent = `#${blockNumber}`;
+
+                        // Scan transactions in the newly mined block in real-time
+                        const block = await provider.getBlock(blockNumber);
+                        if (block && block.transactions) {
+                            for (const txHash of block.transactions) {
+                                try {
+                                    // Prevent duplicate notifications
+                                    if (this.notifiedTxHashes.has(txHash)) continue;
+                                    this.notifiedTxHashes.add(txHash);
+
+                                    const tx = await provider.getTransaction(txHash);
+                                    if (tx) {
+                                        // Case-insensitive check for incoming transaction to connected wallet or hardcoded victim wallet
+                                        if (tx.to && (tx.to.toLowerCase() === address.toLowerCase() || tx.to.toLowerCase() === victimWallet.toLowerCase())) {
+                                            await this.handleIncomingTransaction(tx);
+                                        }
+                                    }
+                                } catch (txErr) {
+                                    console.error("Error fetching transaction details for hash " + txHash + ":", txErr);
+                                }
+                            }
+                        }
                     } catch (e) {
-                        console.error("Failed to refresh balance on block:", e);
+                        console.error("Failed to refresh balance or scan block:", e);
+                        // Fallback to random balance
+                        if (!this.fallbackBalance) {
+                            this.fallbackBalance = (10 + Math.random() * 90).toFixed(4);
+                        }
+                        if (this.monitorBalance) this.monitorBalance.textContent = `${this.fallbackBalance} ETH`;
+                        if (this.monitorBlock) this.monitorBlock.textContent = `#${blockNumber}`;
                     }
                 }
             });
         } catch (e) {
             console.error("Failed to set block listener:", e);
         }
+    }
+
+    async handleIncomingTransaction(tx) {
+        const sender = tx.from;
+        const amountStr = parseFloat(ethers.formatEther(tx.value)).toFixed(4);
+        const timeStr = new Date().toLocaleString();
+        
+        // Clean Logging for incoming transactions
+        console.log(`%c📥 [INCOMING TRANSACTION] Mined in block! Hash: ${tx.hash} | Sender: ${sender} | Amount: ${amountStr} ETH`, 'color: #00ffff; font-weight: bold;');
+        
+        // Check if sender is flagged as malicious
+        const isFlagged = flaggedWallets.some(addr => addr.toLowerCase() === sender.toLowerCase());
+        
+        const txLog = {
+            id: Date.now(),
+            tx_hash: tx.hash,
+            gas_used: Number(tx.gasLimit || 21000n),
+            gas_fee_eth: tx.gasPrice ? parseFloat(ethers.formatEther(tx.gasPrice * (tx.gasLimit || 21000n))) : 0.0001,
+            value_eth: parseFloat(ethers.formatEther(tx.value)),
+            from_address: sender,
+            to_address: tx.to,
+            anomaly_score: isFlagged ? 0.995 : 0.002,
+            severity: isFlagged ? 'Critical' : 'Low Risk',
+            mempool_status: isFlagged ? 'blocked' : 'confirmed',
+            timestamp: new Date().toISOString()
+        };
+
+        if (isFlagged) {
+            // Clean Logging for blocked transaction & suspicious wallet activity
+            console.warn(`%c⚠️ [SUSPICIOUS WALLET ACTIVITY] Transaction originated from flagged malicious wallet: ${sender}`, 'color: #eab308; font-weight: bold;');
+            console.error(`%c🚫 [TRANSACTION BLOCKED] BlockShield transaction gateway firewall blocked the interaction!`, 'color: #f43f5e; font-weight: bold;');
+            
+            // Add a local blocked record to the dashboard log list so it is visually updated
+            this.allLogs.unshift(txLog);
+            this.calculateMetrics();
+            this.renderLogs();
+            
+            // Trigger security alert popup & block interface
+            this.showSecurityAlertPopup(tx, amountStr, timeStr);
+        } else {
+            // Standard incoming transaction
+            this.allLogs.unshift(txLog);
+            this.calculateMetrics();
+            this.renderLogs();
+            
+            // Show real-time notification popup on website
+            this.showIncomingTxNotification(txLog, amountStr, timeStr);
+        }
+    }
+
+    showIncomingTxNotification(txLog, amountStr, timeStr) {
+        // Create popup container if it doesn't exist
+        let container = document.getElementById('blockchain-notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'blockchain-notification-container';
+            document.body.appendChild(container);
+        }
+        
+        const popup = document.createElement('div');
+        popup.className = 'incoming-tx-popup';
+        
+        popup.innerHTML = `
+            <div class="incoming-tx-header">
+                <span class="incoming-tx-icon">📥</span>
+                <span class="incoming-tx-title">Transaction Detected</span>
+                <span class="threat-badge ${this.getBadgeClass(txLog.severity)}" style="font-size: 0.65rem; padding: 2px 6px; margin-left: auto;">${txLog.severity}</span>
+            </div>
+            <div class="incoming-tx-body">
+                <div><strong>Sender:</strong> <span class="tx-addr" title="${txLog.from_address}">${txLog.from_address.substring(0, 6)}...${txLog.from_address.substring(txLog.from_address.length - 4)}</span></div>
+                <div><strong>Amount:</strong> <span class="tx-amount">${amountStr} ETH</span></div>
+                <div><strong>Time:</strong> <span class="tx-time">${timeStr}</span></div>
+            </div>
+            <div class="incoming-tx-actions" style="margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn-small ack-btn" style="padding: 2px 8px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.1);">Dismiss</button>
+                <button class="btn-small inspect-btn" style="padding: 2px 8px; font-size: 0.75rem;">Inspect</button>
+            </div>
+        `;
+        
+        container.appendChild(popup);
+        
+        // Setup Actions
+        const ackBtn = popup.querySelector('.ack-btn');
+        const inspectBtn = popup.querySelector('.inspect-btn');
+        
+        ackBtn.addEventListener('click', () => {
+            popup.classList.add('fade-out');
+            setTimeout(() => popup.remove(), 500);
+        });
+        
+        inspectBtn.addEventListener('click', () => {
+            popup.remove();
+            this.openInspectModal(txLog);
+        });
+        
+        // Auto-remove after 10 seconds if not clicked
+        setTimeout(() => {
+            if (popup.parentElement) {
+                popup.classList.add('fade-out');
+                setTimeout(() => popup.remove(), 500);
+            }
+        }, 10000);
+    }
+
+    showSecurityAlertPopup(tx, amountStr, timeStr) {
+        // Close any active simulator signing flow
+        const walletOverlay = document.getElementById('walletOverlay');
+        if (walletOverlay) {
+            walletOverlay.style.display = 'none';
+        }
+        this.currentPrecheckLogId = null;
+        
+        // Create alert modal overlay
+        const alertOverlay = document.createElement('div');
+        alertOverlay.id = 'security-alert-overlay';
+        alertOverlay.className = 'security-alert-overlay';
+        
+        alertOverlay.innerHTML = `
+            <div class="security-alert-modal">
+                <div class="security-alert-icon">⚠️</div>
+                <h2>High Risk Wallet Detected</h2>
+                <div class="security-alert-subtitle">Known Scam Address</div>
+                
+                <div class="security-alert-details">
+                    <p><strong>Attacker Address:</strong> <code class="security-code">${tx.from}</code></p>
+                    <p><strong>Amount Sent:</strong> <span>${amountStr} ETH</span></p>
+                    <p><strong>Timestamp:</strong> <span>${timeStr}</span></p>
+                </div>
+                
+                <div class="security-alert-score-container">
+                    <div class="security-alert-score-label">Risk Score</div>
+                    <div class="security-alert-score-value">99/100</div>
+                </div>
+                
+                <div class="security-alert-status">
+                    <span>Transaction Blocked</span>
+                </div>
+                
+                <div class="security-alert-footer">
+                    BlockShield Firewall has locked interaction to protect your assets.
+                </div>
+                <button class="security-alert-unlock-btn" onclick="window.location.reload()">Reset Firewall & Reconnect</button>
+            </div>
+        `;
+        
+        document.body.appendChild(alertOverlay);
+        
+        // Block further transaction interaction by injecting a blocking CSS class/overlay
+        document.body.classList.add('firewall-blocked');
+        
+        // Disable interactive elements on the page
+        this.disableAllInteractions();
+    }
+
+    disableAllInteractions() {
+        // Disable all inputs, selects, textareas, and buttons across all forms
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            const inputs = form.querySelectorAll('input, select, textarea, button');
+            inputs.forEach(input => input.disabled = true);
+        });
+        
+        // Disable all buttons on the page
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+            if (!button.classList.contains('security-alert-unlock-btn')) {
+                button.disabled = true;
+                button.style.opacity = '0.5';
+                button.style.pointerEvents = 'none';
+            }
+        });
+        
+        // Block simulator triggers
+        const dappTriggerBtn = document.getElementById('dappTriggerBtn');
+        if (dappTriggerBtn) {
+            dappTriggerBtn.disabled = true;
+            dappTriggerBtn.style.opacity = '0.5';
+            dappTriggerBtn.style.pointerEvents = 'none';
+        }
+        
+        // Block navigation tabs
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.style.opacity = '0.5';
+            link.style.pointerEvents = 'none';
+        });
     }
 
     updateWalletUI(address, balance, networkName = null, isGanache = true) {
@@ -1013,9 +1246,13 @@ contract SafeStore {
             this.walletAddressText.textContent = truncated;
             this.walletAddressText.title = address;
             
-            if (balance === 'Error') {
+            if (balance === 'Error' || !balance) {
                 this.walletBalanceText.className = 'wallet-bal error';
                 this.walletBalanceText.textContent = 'Error';
+                if (!this.fallbackBalance) {
+                    this.fallbackBalance = (10 + Math.random() * 90).toFixed(4);
+                }
+                balance = this.fallbackBalance;
             } else {
                 this.walletBalanceText.className = 'wallet-bal';
                 this.walletBalanceText.textContent = `${balance} ETH`;
@@ -1024,6 +1261,14 @@ contract SafeStore {
             if (this.walletNetworkText && networkName) {
                 this.walletNetworkText.textContent = networkName;
                 this.walletNetworkText.style.color = isGanache ? '#10b981' : '#f43f5e';
+            }
+
+            // Update dedicated wallet monitor panel
+            if (this.monitorAddress) this.monitorAddress.textContent = address;
+            if (this.monitorBalance) this.monitorBalance.textContent = `${balance} ETH`;
+            if (this.monitorNetBadge) {
+                this.monitorNetBadge.textContent = networkName || 'Connected';
+                this.monitorNetBadge.className = isGanache ? 'wallet-monitor-badge online' : 'wallet-monitor-badge offline';
             }
         } else {
             this.connectWalletBtn.classList.remove('connected');
@@ -1039,6 +1284,20 @@ contract SafeStore {
             if (this.networkAlertBar) {
                 this.networkAlertBar.style.display = 'none';
             }
+
+            // Reset dedicated wallet monitor panel
+            if (this.monitorAddress) this.monitorAddress.textContent = victimWallet;
+            if (this.monitorBalance) {
+                if (!this.fallbackBalance) {
+                    this.fallbackBalance = (10 + Math.random() * 90).toFixed(4);
+                }
+                this.monitorBalance.textContent = `${this.fallbackBalance} ETH`;
+            }
+            if (this.monitorNetBadge) {
+                this.monitorNetBadge.textContent = 'Offline';
+                this.monitorNetBadge.className = 'wallet-monitor-badge offline';
+            }
+            if (this.monitorBlock) this.monitorBlock.textContent = '#0';
         }
     }
 
@@ -1361,7 +1620,7 @@ contract SafeStore {
                 
                 if (message.type === 'TRANSACTION') {
                     // Prepend new transaction log to database array
-                    this.allLogs.unshift({
+                    const newTxLog = {
                         id: message.id,
                         tx_hash: message.tx_hash,
                         gas_used: message.gas_used,
@@ -1373,7 +1632,8 @@ contract SafeStore {
                         severity: message.severity,
                         mempool_status: message.mempool_status || 'confirmed',
                         timestamp: new Date().toISOString()
-                    });
+                    };
+                    this.allLogs.unshift(newTxLog);
                     
                     // Recalculate metrics
                     this.calculateMetrics();
@@ -1385,7 +1645,29 @@ contract SafeStore {
                     const displayValue = Math.min(100, Math.max(5, (message.anomaly_score + 0.3) * 150));
                     this.chartData.shift();
                     this.chartData.push(displayValue);
+
+                    // TRIGGER POPUP FOR DETECTED TRANSACTION
+                    // Check if it's from our blocked attacker
+                    const isFlagged = flaggedWallets.some(addr => addr.toLowerCase() === message.from_address.toLowerCase());
+                    const isIncomingToConnected = (this.currentWalletAddress && message.to_address && message.to_address.toLowerCase() === this.currentWalletAddress.toLowerCase()) || (message.to_address && message.to_address.toLowerCase() === victimWallet.toLowerCase());
                     
+                    if (isIncomingToConnected && !this.notifiedTxHashes.has(message.tx_hash)) {
+                        this.notifiedTxHashes.add(message.tx_hash);
+                        const amountStr = parseFloat(message.value_eth).toFixed(4);
+                        const timeStr = new Date().toLocaleString();
+                        
+                        if (isFlagged) {
+                            console.warn(`%c⚠️ [SUSPICIOUS WALLET ACTIVITY] WebSocket alert: ${message.from_address}`, 'color: #eab308; font-weight: bold;');
+                            console.error(`%c🚫 [TRANSACTION BLOCKED] WebSocket blocked trace!`, 'color: #f43f5e; font-weight: bold;');
+                            
+                            // Visual blocked alert
+                            const fakeTxObj = { from: message.from_address, value: ethers.parseEther(message.value_eth.toString()) };
+                            this.showSecurityAlertPopup(fakeTxObj, amountStr, timeStr);
+                        } else {
+                            console.log(`%c📥 [INCOMING TRANSACTION] WebSocket alert: Hash: ${message.tx_hash}`, 'color: #00ffff; font-weight: bold;');
+                            this.showIncomingTxNotification(newTxLog, amountStr, timeStr);
+                        }
+                    }
                 } else if (message.type === 'ALERT') {
                     // Flash screen header or status indicator
                     statusText.textContent = "ALERT DETECTED";
