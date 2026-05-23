@@ -578,6 +578,16 @@ def analyze_contract(request: AnalyzeContractRequest, current_user: models.User 
         }
     }
 
+@app.get("/api/v1/blockchain/accounts")
+def get_blockchain_accounts(current_user: models.User = Depends(get_current_user)):
+    try:
+        if blockchain_service.is_connected():
+            accounts = blockchain_service.w3.eth.accounts
+            return {"status": "success", "accounts": accounts}
+        return {"status": "error", "message": "Blockchain not connected", "accounts": []}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "accounts": []}
+
 @app.websocket("/ws/alerts")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)

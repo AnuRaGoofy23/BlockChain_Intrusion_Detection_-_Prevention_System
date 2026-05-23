@@ -2479,4 +2479,182 @@ body.firewall-blocked::after {
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
 }
 
+/* Webapp Secure Vault Floating Window */
+.webapp-vault-window {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 300px;
+    background: rgba(15, 15, 25, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(0, 255, 255, 0.15);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(0, 255, 255, 0.05), inset 0 0 16px rgba(255, 255, 255, 0.02);
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+}
+
+.webapp-vault-window.minimized {
+    height: 48px;
+    width: 220px;
+}
+
+.vault-window-header {
+    background: rgba(0, 255, 255, 0.05);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.vault-title-icon {
+    font-size: 1.1rem;
+    margin-right: 8px;
+}
+
+.vault-title-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--gradient-mixed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.vault-minimize-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+
+.vault-minimize-btn:hover {
+    color: var(--text-primary);
+}
+
+.vault-window-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: max-height 0.3s ease-out;
+}
+
+.webapp-vault-window.minimized .vault-window-body {
+    display: none;
+}
+
+.vault-balance-container {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+}
+
+.vault-balance-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.vault-balance-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #00ff88;
+    text-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+    font-family: 'Inter', monospace;
+    transition: transform 0.2s ease;
+}
+
+.vault-balance-value.deduct-flash {
+    animation: deductFlashAnim 0.8s ease-out;
+}
+
+@keyframes deductFlashAnim {
+    0% { color: #00ff88; transform: scale(1); }
+    15% { color: #f43f5e; transform: scale(0.95); text-shadow: 0 0 15px rgba(244, 63, 94, 0.4); }
+    50% { color: #f43f5e; transform: scale(0.95); }
+    100% { color: #00ff88; transform: scale(1); text-shadow: 0 0 15px rgba(0, 255, 136, 0.2); }
+}
+
+.vault-status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.vault-status-dot {
+    width: 6px;
+    height: 6px;
+    background: #00ff88;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00ff88;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.vault-status-label {
+    color: var(--text-dim);
+}
+
+/* Discrete Filter Button inside Mockup Browser Header */
+.discrete-filter-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.25); /* Subtle dim icon */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 4px;
+    transition: none; /* Absolutely no hover color transitions */
+    outline: none;
+}
+
+/* Completely static style: Hover and active states look identical to static */
+.discrete-filter-btn:hover,
+.discrete-filter-btn:focus,
+.discrete-filter-btn:active {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.25) !important;
+    box-shadow: none !important;
+    transform: none !important;
+    outline: none !important;
+}
+
+/* Cooldown Style for dApp Trigger Button */
+.dapp-btn.cooldown {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-dim) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    pointer-events: none;
+}
+
+/* Hide Webapp Vault Window when login overlay is active */
+.webapp-vault-window.hidden {
+    display: none !important;
+}
+
+.auth-overlay:not(.hidden) ~ .webapp-vault-window {
+    display: none !important;
+}
+
 

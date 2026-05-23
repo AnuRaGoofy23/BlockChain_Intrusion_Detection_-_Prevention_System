@@ -16,8 +16,15 @@ class BlockShieldApp {
         this.filterMode = 'all'; // 'all' or 'anomalies'
         this.currentPrecheckLogId = null;
         
+        // Webapp Secure Vault local state
+        this.webappEthBalance = parseFloat(localStorage.getItem('webapp_eth_balance') || '10.0');
+        this.dappRealOnlyMode = localStorage.getItem('dapp_real_only_mode') === 'true';
+        this.lastPrecheckAction = null;
+        this.lastPrecheckValue = 0.0;
+        
         this.initDOMElements();
         this.setupAuthHandlers();
+        this.setupWebappVault();
         
         if (this.token) {
             this.showDashboard();
@@ -117,6 +124,12 @@ class BlockShieldApp {
         this.monitorAddress = document.getElementById('monitorAddress');
         this.monitorBalance = document.getElementById('monitorBalance');
         this.monitorBlock = document.getElementById('monitorBlock');
+
+        // Webapp Secure Vault Elements
+        this.webappVaultWindow = document.getElementById('webappVaultWindow');
+        this.webappVaultBalanceText = document.getElementById('webappVaultBalanceText');
+        this.vaultMinimizeBtn = document.getElementById('vaultMinimizeBtn');
+        this.discreteFilterBtn = document.getElementById('discreteFilterBtn');
     }
 
     setupAuthHandlers() {
@@ -209,14 +222,80 @@ class BlockShieldApp {
         });
     }
 
+    setupWebappVault() {
+        if (this.webappVaultBalanceText) {
+            this.webappVaultBalanceText.textContent = `${this.webappEthBalance.toFixed(4)} ETH`;
+        }
+
+        if (this.vaultMinimizeBtn && this.webappVaultWindow) {
+            // Load minimize state
+            const isMinimized = localStorage.getItem('webapp_vault_minimized') === 'true';
+            if (isMinimized) {
+                this.webappVaultWindow.classList.add('minimized');
+                this.vaultMinimizeBtn.innerHTML = '&plus;';
+            } else {
+                this.webappVaultWindow.classList.remove('minimized');
+                this.vaultMinimizeBtn.innerHTML = '&minus;';
+            }
+
+            this.vaultMinimizeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const minimized = this.webappVaultWindow.classList.toggle('minimized');
+                localStorage.setItem('webapp_vault_minimized', minimized);
+                this.vaultMinimizeBtn.innerHTML = minimized ? '&plus;' : '&minus;';
+            });
+            
+            // Also make header clickable to toggle minimize
+            const header = this.webappVaultWindow.querySelector('.vault-window-header');
+            if (header) {
+                header.addEventListener('click', () => {
+                    const minimized = this.webappVaultWindow.classList.toggle('minimized');
+                    localStorage.setItem('webapp_vault_minimized', minimized);
+                    this.vaultMinimizeBtn.innerHTML = minimized ? '&plus;' : '&minus;';
+                });
+            }
+        }
+
+        if (this.discreteFilterBtn) {
+            this.discreteFilterBtn.addEventListener('click', () => {
+                this.dappRealOnlyMode = !this.dappRealOnlyMode;
+                localStorage.setItem('dapp_real_only_mode', this.dappRealOnlyMode);
+                console.log(`[BlockShield IPS] Simulator Mode Toggled: Real-only = ${this.dappRealOnlyMode}`);
+            });
+        }
+    }
+
+    async fetchGanacheAccounts() {
+        try {
+            const response = await fetch('/api/v1/blockchain/accounts', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.ganacheAccounts = data.accounts;
+                    console.log('[BlockShield] Loaded Ganache accounts:', this.ganacheAccounts);
+                }
+            }
+        } catch (err) {
+            console.error('[BlockShield] Failed to fetch Ganache accounts:', err);
+        }
+    }
+
     showAuthPortal() {
         this.authOverlay.classList.remove('hidden');
         this.loginCard.style.display = 'block';
         this.registerCard.style.display = 'none';
+        if (this.webappVaultWindow) {
+            this.webappVaultWindow.classList.add('hidden');
+        }
     }
 
     showDashboard() {
         this.authOverlay.classList.add('hidden');
+        if (this.webappVaultWindow) {
+            this.webappVaultWindow.classList.remove('hidden');
+        }
         this.initDashboard();
     }
 
@@ -228,6 +307,9 @@ class BlockShieldApp {
         this.setupAuditorController();
         this.setupThreatDbController();
         this.setupWalletConnection();
+        
+        // Fetch Ganache accounts for dynamic simulation targeting
+        await this.fetchGanacheAccounts();
         
         // Initial Fetch
         await this.fetchLogs();
@@ -428,26 +510,94 @@ class BlockShieldApp {
             });
         }
 
-        // Web Sandbox Button Trigger
+        // Web Sandbox Button Trigger with 3-second delay/cooldown and random safe/scam addresses
         if (dappTriggerBtn) {
             dappTriggerBtn.addEventListener('click', () => {
-                // Auto fill forms with simulated scam attributes
-                document.getElementById('simFrom').value = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F';
-                document.getElementById('simTo').value = '0xscam77777777777777777777777777777777777'; // Seeded scam address
-                document.getElementById('simValue').value = '0.025';
-                document.getElementById('simGasLimit').value = '180000';
-                document.getElementById('simGasPrice').value = '45';
-                document.getElementById('simPermissions').value = 'Unlimited Token Approval (ERC-20)';
-                document.getElementById('simApprovalAmount').value = '100000000';
-                document.getElementById('simWalletAge').value = '1'; // New wallet
-                document.getElementById('simFailedCount').value = '3'; // Failed transfers
-                document.getElementById('simDomain').value = 'blockshield-verify.io'; // Seeded scam domain
-                
-                // Trigger url text update
-                browserUrlText.textContent = 'http://blockshield-verify.io';
+                if (dappTriggerBtn.classList.contains('cooldown')) return;
 
-                // Submit simulated tx
-                simTxForm.dispatchEvent(new Event('submit'));
+                // Determine transaction type (if real-only is toggled, always real; otherwise 30% chance real, 70% chance scam)
+                const isReal = this.dappRealOnlyMode ? true : (Math.random() < 0.3);
+                
+                // Disable button and start 3-second cooldown countdown
+                dappTriggerBtn.classList.add('cooldown');
+                dappTriggerBtn.disabled = true;
+                
+                let countdown = 3;
+                dappTriggerBtn.textContent = `Scanning (${countdown}s)...`;
+                
+                const timer = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        dappTriggerBtn.textContent = `Scanning (${countdown}s)...`;
+                    } else {
+                        clearInterval(timer);
+                        dappTriggerBtn.classList.remove('cooldown');
+                        dappTriggerBtn.disabled = false;
+                        dappTriggerBtn.textContent = 'Verify & Claim Rewards';
+                        
+                        // Generate transaction details using realistic random hashes
+                        const randomAddress = () => '0x' + Array(40).fill(0).map(() => Math.floor(Math.random()*16).toString(16)).join('');
+                        
+                        if (isReal) {
+                            // Populate form with real transaction parameters
+                            const val = (0.01 + Math.random() * 0.08).toFixed(4);
+                            
+                            // Dynamically find a recipient account from Ganache accounts
+                            let recipient = '';
+                            if (this.ganacheAccounts && this.ganacheAccounts.length > 0) {
+                                const otherAccounts = this.ganacheAccounts.filter(addr => 
+                                    !this.currentWalletAddress || addr.toLowerCase() !== this.currentWalletAddress.toLowerCase()
+                                );
+                                if (otherAccounts.length > 0) {
+                                    recipient = otherAccounts[0]; // Send to Wallet B (real account)
+                                } else {
+                                    recipient = this.ganacheAccounts[0];
+                                }
+                            } else {
+                                recipient = '0x6edb6edBe70DDcfe05478ECD18c53ce36FFbA4BC'; // Default fallback
+                            }
+                            
+                            const fromAddr = this.currentWalletAddress || '0x71C7656EC7ab88b098defB751B7401B5f6d8976F';
+                            
+                            document.getElementById('simFrom').value = fromAddr;
+                            document.getElementById('simTo').value = recipient;
+                            document.getElementById('simValue').value = val;
+                            document.getElementById('simGasLimit').value = '21000';
+                            document.getElementById('simGasPrice').value = '25';
+                            document.getElementById('simPermissions').value = 'None';
+                            document.getElementById('simApprovalAmount').value = '0';
+                            document.getElementById('simWalletAge').value = '245';
+                            document.getElementById('simFailedCount').value = '0';
+                            document.getElementById('simDomain').value = 'safepool-staking.net';
+                            
+                            if (browserUrlText) {
+                                browserUrlText.textContent = 'http://safepool-staking.net';
+                            }
+                        } else {
+                            // Populate form with simulated scam parameters
+                            const scamRecipient = randomAddress();
+                            const fromAddr = this.currentWalletAddress || '0x71C7656EC7ab88b098defB751B7401B5f6d8976F';
+                            
+                            document.getElementById('simFrom').value = fromAddr;
+                            document.getElementById('simTo').value = scamRecipient;
+                            document.getElementById('simValue').value = '0.025';
+                            document.getElementById('simGasLimit').value = '180000';
+                            document.getElementById('simGasPrice').value = '45';
+                            document.getElementById('simPermissions').value = 'Unlimited Approval';
+                            document.getElementById('simApprovalAmount').value = '100000000';
+                            document.getElementById('simWalletAge').value = '1';
+                            document.getElementById('simFailedCount').value = '3';
+                            document.getElementById('simDomain').value = 'blockshield-verify.io';
+                            
+                            if (browserUrlText) {
+                                browserUrlText.textContent = 'http://blockshield-verify.io';
+                            }
+                        }
+                        
+                        // Submit simulated tx
+                        simTxForm.dispatchEvent(new Event('submit'));
+                    }
+                }, 1000);
             });
         }
 
@@ -458,13 +608,45 @@ class BlockShieldApp {
             });
         }
 
-        // MetaMask Confirm Sign Button Click
+        // MetaMask Confirm Sign Button Click (reducing Webapp Vault ETH balance and sending REAL transaction via MetaMask/Ganache)
         if (walletConfirmBtn) {
             walletConfirmBtn.addEventListener('click', async () => {
                 if (!this.currentPrecheckLogId) return;
                 
                 walletConfirmBtn.disabled = true;
                 walletConfirmBtn.innerHTML = '<span class="mini-spinner"></span> Signing...';
+                
+                // If it is a real transaction and we have MetaMask connected, trigger a real transaction broadcast!
+                let txHash = null;
+                if (this.lastPrecheckAction === 'SAFE' && window.ethereum && this.currentWalletAddress) {
+                    try {
+                        const provider = new ethers.BrowserProvider(window.ethereum);
+                        const signer = await provider.getSigner();
+                        
+                        const valueEth = parseFloat(document.getElementById('simValue').value) || 0.05;
+                        const toAddress = document.getElementById('simTo').value;
+                        const gasLimit = parseInt(document.getElementById('simGasLimit').value) || 21000;
+                        
+                        walletConfirmBtn.innerHTML = '<span class="mini-spinner"></span> Confirming in MetaMask...';
+                        
+                        const tx = await signer.sendTransaction({
+                            to: toAddress,
+                            value: ethers.parseEther(valueEth.toString()),
+                            gasLimit: gasLimit
+                        });
+                        
+                        walletConfirmBtn.innerHTML = '<span class="mini-spinner"></span> Waiting for mining...';
+                        const receipt = await tx.wait();
+                        txHash = receipt.hash;
+                        console.log("[BlockShield] Real transaction broadcasted and mined! Hash:", txHash);
+                    } catch (txErr) {
+                        console.error("[BlockShield] Real MetaMask transaction failed or rejected:", txErr);
+                        alert('Transaction was rejected or failed in MetaMask: ' + (txErr.message || txErr.reason || txErr));
+                        walletConfirmBtn.textContent = 'Sign';
+                        walletConfirmBtn.disabled = false;
+                        return; // Stop and do not call backend confirm if real transaction fails
+                    }
+                }
                 
                 try {
                     const response = await fetch('/api/v1/ips/confirm', {
@@ -478,6 +660,20 @@ class BlockShieldApp {
                     
                     if (!response.ok) {
                         throw new Error('Signature confirmation request failed.');
+                    }
+                    
+                    // Deduct balance if the prechecked transaction was SAFE
+                    if (this.lastPrecheckAction === 'SAFE' && typeof this.lastPrecheckValue === 'number') {
+                        this.webappEthBalance = Math.max(0.0, this.webappEthBalance - this.lastPrecheckValue);
+                        localStorage.setItem('webapp_eth_balance', this.webappEthBalance.toString());
+                        
+                        // Update balance UI with flash effect
+                        if (this.webappVaultBalanceText) {
+                            this.webappVaultBalanceText.textContent = `${this.webappEthBalance.toFixed(4)} ETH`;
+                            this.webappVaultBalanceText.classList.remove('deduct-flash');
+                            void this.webappVaultBalanceText.offsetWidth; // Trigger reflow
+                            this.webappVaultBalanceText.classList.add('deduct-flash');
+                        }
                     }
                     
                     alert('Signature authorization confirmed. Transaction dispatched to the blockchain network.');
@@ -539,6 +735,8 @@ class BlockShieldApp {
 
             const data = await response.json();
             this.currentPrecheckLogId = data.log_id;
+            this.lastPrecheckAction = data.action;
+            this.lastPrecheckValue = payload.value_eth;
 
             // Artificial delay to simulate scanning
             await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1023,8 +1221,13 @@ contract SafeStore {
 
                                     const tx = await provider.getTransaction(txHash);
                                     if (tx) {
-                                        // Case-insensitive check for incoming transaction to connected wallet or hardcoded victim wallet
-                                        if (tx.to && (tx.to.toLowerCase() === address.toLowerCase() || tx.to.toLowerCase() === victimWallet.toLowerCase())) {
+                                        // Capture transactions involving our Ganache accounts
+                                        const isFromMe = tx.from && tx.from.toLowerCase() === address.toLowerCase();
+                                        const isToMe = tx.to && tx.to.toLowerCase() === address.toLowerCase();
+                                        const isToVictim = tx.to && tx.to.toLowerCase() === victimWallet.toLowerCase();
+                                        const isToGanache = tx.to && this.ganacheAccounts && this.ganacheAccounts.some(a => a.toLowerCase() === tx.to.toLowerCase());
+
+                                        if (isFromMe || isToMe || isToVictim || isToGanache) {
                                             await this.handleIncomingTransaction(tx);
                                         }
                                     }
@@ -1649,9 +1852,13 @@ contract SafeStore {
                     // TRIGGER POPUP FOR DETECTED TRANSACTION
                     // Check if it's from our blocked attacker
                     const isFlagged = flaggedWallets.some(addr => addr.toLowerCase() === message.from_address.toLowerCase());
-                    const isIncomingToConnected = (this.currentWalletAddress && message.to_address && message.to_address.toLowerCase() === this.currentWalletAddress.toLowerCase()) || (message.to_address && message.to_address.toLowerCase() === victimWallet.toLowerCase());
+                    const isFromMe = message.from_address && this.currentWalletAddress && message.from_address.toLowerCase() === this.currentWalletAddress.toLowerCase();
+                    const isToMe = message.to_address && this.currentWalletAddress && message.to_address.toLowerCase() === this.currentWalletAddress.toLowerCase();
+                    const isToVictim = message.to_address && message.to_address.toLowerCase() === victimWallet.toLowerCase();
+                    const isToGanache = message.to_address && this.ganacheAccounts && this.ganacheAccounts.some(a => a.toLowerCase() === message.to_address.toLowerCase());
+                    const isGanacheTx = isFromMe || isToMe || isToVictim || isToGanache;
                     
-                    if (isIncomingToConnected && !this.notifiedTxHashes.has(message.tx_hash)) {
+                    if (isGanacheTx && !this.notifiedTxHashes.has(message.tx_hash)) {
                         this.notifiedTxHashes.add(message.tx_hash);
                         const amountStr = parseFloat(message.value_eth).toFixed(4);
                         const timeStr = new Date().toLocaleString();
